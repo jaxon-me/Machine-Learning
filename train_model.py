@@ -17,6 +17,13 @@ TARGET_COLUMN = "Target Pressure (bar)"
 ID_COLUMN = "ID"
 
 
+def create_one_hot_encoder() -> OneHotEncoder:
+    try:
+        return OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+    except TypeError:
+        return OneHotEncoder(handle_unknown="ignore", sparse=False)
+
+
 def build_pipeline(features: pd.DataFrame) -> Pipeline:
     categorical_features = features.select_dtypes(include=["object", "category"]).columns.tolist()
     numeric_features = [col for col in features.columns if col not in categorical_features]
@@ -29,7 +36,7 @@ def build_pipeline(features: pd.DataFrame) -> Pipeline:
     categorical_transformer = Pipeline(
         steps=[
             ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("onehot", OneHotEncoder(handle_unknown="ignore", sparse=False)),
+            ("onehot", create_one_hot_encoder()),
         ]
     )
 
