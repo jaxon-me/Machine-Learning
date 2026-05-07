@@ -94,7 +94,12 @@ def main() -> None:
     )
     pipeline.fit(X_train, y_train)
     valid_predictions = pipeline.predict(X_valid)
-    rmse = mean_squared_error(y_valid, valid_predictions, squared=False)
+    try:
+        from sklearn.metrics import root_mean_squared_error
+
+        rmse = root_mean_squared_error(y_valid, valid_predictions)
+    except ImportError:
+        rmse = mean_squared_error(y_valid, valid_predictions, squared=False)
     r2 = r2_score(y_valid, valid_predictions)
     print(f"Validation RMSE: {rmse:.6f}")
     print(f"Validation R2: {r2:.6f}")
