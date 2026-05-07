@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 from pathlib import Path
 
 import joblib
@@ -12,7 +13,6 @@ from sklearn.metrics import get_scorer_names, mean_squared_error, r2_score
 from sklearn.model_selection import cross_validate
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
-import inspect
 
 TARGET_COLUMN = "Target Pressure (bar)"
 ID_COLUMN = "ID"
