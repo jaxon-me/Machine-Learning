@@ -80,6 +80,10 @@ def main() -> None:
     if TARGET_COLUMN not in train_df.columns:
         raise ValueError(f"Training data missing target column: {TARGET_COLUMN}")
 
+    train_df = train_df.dropna(subset=[TARGET_COLUMN])
+    if train_df.empty:
+        raise ValueError("Training data has no rows with a target value.")
+
     features = train_df.drop(columns=[TARGET_COLUMN])
     target = train_df[TARGET_COLUMN]
 
