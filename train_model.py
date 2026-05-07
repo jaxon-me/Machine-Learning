@@ -12,16 +12,19 @@ from sklearn.metrics import get_scorer_names, mean_squared_error, r2_score
 from sklearn.model_selection import cross_validate
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
+import inspect
 
 TARGET_COLUMN = "Target Pressure (bar)"
 ID_COLUMN = "ID"
 
 
 def create_one_hot_encoder() -> OneHotEncoder:
-    try:
-        return OneHotEncoder(handle_unknown="ignore", sparse_output=False)
-    except TypeError:
-        return OneHotEncoder(handle_unknown="ignore", sparse=False)
+    params = {"handle_unknown": "ignore"}
+    if "sparse_output" in inspect.signature(OneHotEncoder).parameters:
+        params["sparse_output"] = False
+    else:
+        params["sparse"] = False
+    return OneHotEncoder(**params)
 
 
 def drop_columns_if_present(frame: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
@@ -164,7 +167,7 @@ def main() -> None:
             "Test data columns do not match training features. "
             f"Missing: {sorted(missing_columns)}. Extra: {sorted(extra_columns)}."
         )
-    test_features = test_features.reindex(columns=features.columns)
+    test_features = test_features[features.columns]
 
     test_predictions = pipeline.predict(test_features)
 
