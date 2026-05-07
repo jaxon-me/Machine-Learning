@@ -16,6 +16,7 @@ import inspect
 
 TARGET_COLUMN = "Target Pressure (bar)"
 ID_COLUMN = "ID"
+PREDICTION_COLUMN = "Prediction"
 
 
 def create_one_hot_encoder() -> OneHotEncoder:
@@ -172,9 +173,9 @@ def main() -> None:
     test_predictions = pipeline.predict(test_features)
 
     if ID_COLUMN in test_df.columns:
-        output_df = pd.DataFrame({ID_COLUMN: test_df[ID_COLUMN], TARGET_COLUMN: test_predictions})
+        output_df = pd.DataFrame({ID_COLUMN: test_df[ID_COLUMN], PREDICTION_COLUMN: test_predictions})
     else:
-        output_df = pd.DataFrame({TARGET_COLUMN: test_predictions})
+        output_df = pd.DataFrame({PREDICTION_COLUMN: test_predictions})
     output_df.to_csv(args.output, index=False)
     print(f"Wrote predictions to {args.output.resolve()}")
 
