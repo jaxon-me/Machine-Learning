@@ -85,6 +85,8 @@ def main() -> None:
         raise ValueError("Training data has no rows with a target value.")
 
     features = train_df.drop(columns=[TARGET_COLUMN])
+    if ID_COLUMN in features.columns:
+        features = features.drop(columns=[ID_COLUMN])
     target = train_df[TARGET_COLUMN]
 
     pipeline = build_pipeline(features)
@@ -109,7 +111,11 @@ def main() -> None:
     print(f"Saved model to {args.model_out.resolve()}")
 
     test_df = pd.read_csv(test_path)
-    test_predictions = pipeline.predict(test_df)
+    test_features = test_df
+    if ID_COLUMN in test_features.columns:
+        test_features = test_features.drop(columns=[ID_COLUMN])
+
+    test_predictions = pipeline.predict(test_features)
 
     if ID_COLUMN in test_df.columns:
         output_df = pd.DataFrame({ID_COLUMN: test_df[ID_COLUMN], TARGET_COLUMN: test_predictions})
