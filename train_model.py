@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.impute import SimpleImputer
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import get_scorer_names, mean_squared_error, r2_score
 from sklearn.model_selection import cross_validate
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
@@ -96,7 +96,8 @@ def main() -> None:
 
     pipeline = build_pipeline(features)
 
-    try:
+    scorer_names = set(get_scorer_names())
+    if "neg_root_mean_squared_error" in scorer_names:
         scores = cross_validate(
             pipeline,
             features,
@@ -107,7 +108,7 @@ def main() -> None:
         )
         rmse = -scores["test_rmse"].mean()
         r2 = scores["test_r2"].mean()
-    except ValueError:
+    else:
         scores = cross_validate(
             pipeline,
             features,
@@ -128,13 +129,12 @@ def main() -> None:
     test_df = pd.read_csv(test_path)
     test_features = drop_columns_if_present(test_df, [TARGET_COLUMN, ID_COLUMN])
     missing_columns = set(features.columns) - set(test_features.columns)
-    extra_columns = set(test_features.columns) - set(features.columns)
-    if missing_columns or extra_columns:
+    if missing_columns:
         raise ValueError(
-            "Test data columns do not match training features. "
-            f"Missing: {sorted(missing_columns)}. Extra: {sorted(extra_columns)}."
+            "Test data is missing required columns: "
+            f"{sorted(missing_columns)}."
         )
-    test_features = test_features[features.columns]
+    test_features = test_features.reindex(columns=features.columns)
 
     test_predictions = pipeline.predict(test_features)
 
