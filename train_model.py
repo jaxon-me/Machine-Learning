@@ -24,15 +24,16 @@ def create_one_hot_encoder() -> OneHotEncoder:
         return OneHotEncoder(handle_unknown="ignore", sparse=False)
 
 
-def drop_id_column(frame: pd.DataFrame) -> pd.DataFrame:
-    if ID_COLUMN in frame.columns:
-        return frame.drop(columns=[ID_COLUMN])
-    return frame
+def drop_columns_if_present(frame: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    existing = [column for column in columns if column in frame.columns]
+    if not existing:
+        return frame
+    return frame.drop(columns=existing)
 
 
 def build_pipeline(features: pd.DataFrame) -> Pipeline:
-    categorical_features = features.select_dtypes(include=["object", "category"]).columns.tolist()
-    numeric_features = [col for col in features.columns if col not in categorical_features]
+    numeric_features = features.select_dtypes(include=["number", "bool"]).columns.tolist()
+    categorical_features = [col for col in features.columns if col not in numeric_features]
 
     numeric_transformer = Pipeline(
         steps=[
@@ -90,7 +91,7 @@ def main() -> None:
     if train_df.empty:
         raise ValueError("Training data has no rows with a target value.")
 
-    features = drop_id_column(train_df.drop(columns=[TARGET_COLUMN]))
+    features = drop_columns_if_present(train_df, [TARGET_COLUMN, ID_COLUMN])
     target = train_df[TARGET_COLUMN]
 
     pipeline = build_pipeline(features)
@@ -125,7 +126,15 @@ def main() -> None:
     print(f"Saved model to {args.model_out.resolve()}")
 
     test_df = pd.read_csv(test_path)
-    test_features = drop_id_column(test_df)
+    test_features = drop_columns_if_present(test_df, [TARGET_COLUMN, ID_COLUMN])
+    missing_columns = set(features.columns) - set(test_features.columns)
+    extra_columns = set(test_features.columns) - set(features.columns)
+    if missing_columns or extra_columns:
+        raise ValueError(
+            "Test data columns do not match training features. "
+            f"Missing: {sorted(missing_columns)}. Extra: {sorted(extra_columns)}."
+        )
+    test_features = test_features[features.columns]
 
     test_predictions = pipeline.predict(test_features)
 
