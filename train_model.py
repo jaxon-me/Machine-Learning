@@ -31,7 +31,7 @@ def drop_columns_if_present(frame: pd.DataFrame, columns: list[str]) -> pd.DataF
     return frame.drop(columns=existing)
 
 
-def build_pipeline(features: pd.DataFrame) -> Pipeline:
+def build_pipeline(features: pd.DataFrame, model_params: dict) -> Pipeline:
     numeric_features = features.select_dtypes(include=["number", "bool"]).columns.tolist()
     categorical_features = [col for col in features.columns if col not in numeric_features]
 
@@ -55,8 +55,14 @@ def build_pipeline(features: pd.DataFrame) -> Pipeline:
         remainder="drop",
     )
 
-    model = HistGradientBoostingRegressor(random_state=42)
+    model = HistGradientBoostingRegressor(random_state=42, **model_params)
     return Pipeline(steps=[("preprocess", preprocessor), ("model", model)])
+
+
+def parse_optional_int(value: str) -> int | None:
+    if value.lower() in {"none", "null"}:
+        return None
+    return int(value)
 
 
 def parse_args() -> argparse.Namespace:
@@ -74,6 +80,24 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("model.joblib"),
         help="Path to write trained model.",
+    )
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.1,
+        help="Learning rate for the gradient boosting model.",
+    )
+    parser.add_argument(
+        "--max-depth",
+        type=parse_optional_int,
+        default=None,
+        help="Max depth for the gradient boosting model (use 'none' for no limit).",
+    )
+    parser.add_argument(
+        "--max-iter",
+        type=int,
+        default=100,
+        help="Number of boosting iterations.",
     )
     return parser.parse_args()
 
@@ -94,7 +118,12 @@ def main() -> None:
     features = drop_columns_if_present(train_df, [TARGET_COLUMN, ID_COLUMN])
     target = train_df[TARGET_COLUMN]
 
-    pipeline = build_pipeline(features)
+    model_params = {
+        "learning_rate": args.learning_rate,
+        "max_depth": args.max_depth,
+        "max_iter": args.max_iter,
+    }
+    pipeline = build_pipeline(features, model_params)
 
     scorer_names = set(get_scorer_names())
     if "neg_root_mean_squared_error" in scorer_names:
@@ -129,10 +158,11 @@ def main() -> None:
     test_df = pd.read_csv(test_path)
     test_features = drop_columns_if_present(test_df, [TARGET_COLUMN, ID_COLUMN])
     missing_columns = set(features.columns) - set(test_features.columns)
-    if missing_columns:
+    extra_columns = set(test_features.columns) - set(features.columns)
+    if missing_columns or extra_columns:
         raise ValueError(
-            "Test data is missing required columns: "
-            f"{sorted(missing_columns)}."
+            "Test data columns do not match training features. "
+            f"Missing: {sorted(missing_columns)}. Extra: {sorted(extra_columns)}."
         )
     test_features = test_features.reindex(columns=features.columns)
 
