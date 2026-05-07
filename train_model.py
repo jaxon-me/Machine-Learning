@@ -9,7 +9,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_validate
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
@@ -22,6 +22,12 @@ def create_one_hot_encoder() -> OneHotEncoder:
         return OneHotEncoder(handle_unknown="ignore", sparse_output=False)
     except TypeError:
         return OneHotEncoder(handle_unknown="ignore", sparse=False)
+
+
+def drop_id_column(frame: pd.DataFrame) -> pd.DataFrame:
+    if ID_COLUMN in frame.columns:
+        return frame.drop(columns=[ID_COLUMN])
+    return frame
 
 
 def build_pipeline(features: pd.DataFrame) -> Pipeline:
@@ -84,25 +90,33 @@ def main() -> None:
     if train_df.empty:
         raise ValueError("Training data has no rows with a target value.")
 
-    features = train_df.drop(columns=[TARGET_COLUMN])
-    if ID_COLUMN in features.columns:
-        features = features.drop(columns=[ID_COLUMN])
+    features = drop_id_column(train_df.drop(columns=[TARGET_COLUMN]))
     target = train_df[TARGET_COLUMN]
 
     pipeline = build_pipeline(features)
 
-    X_train, X_valid, y_train, y_valid = train_test_split(
-        features, target, test_size=0.2, random_state=42
-    )
-    pipeline.fit(X_train, y_train)
-    valid_predictions = pipeline.predict(X_valid)
     try:
-        from sklearn.metrics import root_mean_squared_error
-
-        rmse = root_mean_squared_error(y_valid, valid_predictions)
-    except ImportError:
-        rmse = mean_squared_error(y_valid, valid_predictions, squared=False)
-    r2 = r2_score(y_valid, valid_predictions)
+        scores = cross_validate(
+            pipeline,
+            features,
+            target,
+            cv=5,
+            scoring={"rmse": "neg_root_mean_squared_error", "r2": "r2"},
+            n_jobs=-1,
+        )
+        rmse = -scores["test_rmse"].mean()
+        r2 = scores["test_r2"].mean()
+    except ValueError:
+        scores = cross_validate(
+            pipeline,
+            features,
+            target,
+            cv=5,
+            scoring={"mse": "neg_mean_squared_error", "r2": "r2"},
+            n_jobs=-1,
+        )
+        rmse = (-scores["test_mse"].mean()) ** 0.5
+        r2 = scores["test_r2"].mean()
     print(f"Validation RMSE: {rmse:.6f}")
     print(f"Validation R2: {r2:.6f}")
 
@@ -111,9 +125,7 @@ def main() -> None:
     print(f"Saved model to {args.model_out.resolve()}")
 
     test_df = pd.read_csv(test_path)
-    test_features = test_df
-    if ID_COLUMN in test_features.columns:
-        test_features = test_features.drop(columns=[ID_COLUMN])
+    test_features = drop_id_column(test_df)
 
     test_predictions = pipeline.predict(test_features)
 
